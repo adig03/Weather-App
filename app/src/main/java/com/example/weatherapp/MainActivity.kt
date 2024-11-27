@@ -33,7 +33,7 @@ class MainActivity : AppCompatActivity() {
         })
 
         // Fetch weather data for a default city (example: "Jaipur")
-        fetchWeatherData("Jaipur")
+        fetchWeatherData("Una")
 
         // Initialize Search functionality
         searchCity()
