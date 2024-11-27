@@ -1,12 +1,20 @@
 package com.example.weatherapp
 
+import android.Manifest
+import android.content.pm.PackageManager
+import android.location.Geocoder
+import android.location.Location
 import android.os.Bundle
 import android.widget.SearchView
+import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.app.ActivityCompat
 import androidx.lifecycle.Observer
 import androidx.lifecycle.ViewModelProvider
 import com.example.weatherapp.ViewModels.AppViewModel
 import com.example.weatherapp.databinding.ActivityMainBinding
+import com.google.android.gms.location.FusedLocationProviderClient
+import com.google.android.gms.location.LocationServices
 import java.text.SimpleDateFormat
 import java.util.*
 
@@ -14,37 +22,84 @@ class MainActivity : AppCompatActivity() {
 
     private lateinit var binding: ActivityMainBinding
     private lateinit var appViewModel: AppViewModel
+    private lateinit var fusedLocationClient: FusedLocationProviderClient
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        // Inflate the layout and bind the views
         binding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(binding.root)
 
-        // Initialize the ViewModel
-        appViewModel = ViewModelProvider(this).get(AppViewModel::class.java)
 
-        // Observe the weatherData LiveData for updates
+        appViewModel = ViewModelProvider(this).get(AppViewModel::class.java)
+        fusedLocationClient = LocationServices.getFusedLocationProviderClient(this)
+
         appViewModel.weatherData.observe(this, Observer { weatherResponse ->
             weatherResponse?.let {
                 updateUI(weatherResponse)
             }
         })
 
-        // Fetch weather data for a default city (example: "Jaipur")
+
         fetchWeatherData("Una")
 
-        // Initialize Search functionality
+
         searchCity()
+
+
+        fetchDeviceLocation()
     }
+
 
     private fun fetchWeatherData(cityName: String) {
         appViewModel.fetchWeather(cityName)
-        binding.cityName.text = cityName  // Update the city name on the UI
+        binding.cityName.text = cityName
     }
 
-    // Update UI based on the received weather data
+
+    private fun fetchDeviceLocation() {
+        if (ActivityCompat.checkSelfPermission(
+                this,
+                Manifest.permission.ACCESS_FINE_LOCATION
+            ) == PackageManager.PERMISSION_GRANTED
+        ) {
+            fusedLocationClient.lastLocation
+                .addOnSuccessListener { location: Location? ->
+                    location?.let {
+                        val cityName = getCityNameFromLocation(it.latitude, it.longitude)
+                        Toast.makeText(this, "Current Location: $cityName", Toast.LENGTH_LONG).show()
+                        fetchWeatherData(cityName)
+                    }
+                }
+        } else {
+            ActivityCompat.requestPermissions(
+                this,
+                arrayOf(Manifest.permission.ACCESS_FINE_LOCATION),
+                100
+            )
+        }
+    }
+
+
+    private fun getCityNameFromLocation(latitude: Double, longitude: Double): String {
+        try {
+            val geocoder = Geocoder(this, Locale.getDefault())
+            val addresses = geocoder.getFromLocation(latitude, longitude, 1)
+
+            if (addresses != null && addresses.isNotEmpty()) {
+                // Prioritize locality (city) specifically
+                val city = addresses[0].locality
+                return city ?: "Unknown Location"
+            } else {
+                return "Unknown Location"
+            }
+        } catch (e: Exception) {
+            e.printStackTrace()
+            return "Unknown Location"
+        }
+    }
+
+
     private fun updateUI(weatherResponse: WeatherApp) {
         val temperature = weatherResponse.main.temp.toString()
         val humidity = weatherResponse.main.humidity.toString()
@@ -56,7 +111,7 @@ class MainActivity : AppCompatActivity() {
         val maxTemp = weatherResponse.main.temp_max
         val minTemp = weatherResponse.main.temp_min
 
-        // Update UI elements
+
         binding.temperature.text = "$temperature °C"
         binding.weather.text = condition
         binding.maxTemp.text = "Max Temp: $maxTemp °C"
@@ -70,29 +125,28 @@ class MainActivity : AppCompatActivity() {
         binding.day.text = dayName(System.currentTimeMillis())
         binding.date.text = date()
 
-        // Change background and animation based on weather condition
+
         changeImageAccordingWeatherCondition(condition)
     }
 
-    // Convert timestamp to time in HH:mm format
+
     private fun time(timestamp: Long): String {
         val sdf = SimpleDateFormat("HH:mm", Locale.getDefault())
         return sdf.format(Date(timestamp * 1000))
     }
 
-    // Get the day name (e.g., Monday)
+
     private fun dayName(timestamp: Long): String {
         val sdf = SimpleDateFormat("EEEE", Locale.getDefault())
         return sdf.format(Date())
     }
 
-    // Get the current date in dd MMMM yyyy format
+
     private fun date(): String {
         val sdf = SimpleDateFormat("dd MMMM yyyy", Locale.getDefault())
         return sdf.format(Date())
     }
 
-    // Change background and animation according to the weather condition
     private fun changeImageAccordingWeatherCondition(conditions: String) {
         when (conditions) {
             "Clear Sky", "Sunny", "Clear" -> {
@@ -119,20 +173,19 @@ class MainActivity : AppCompatActivity() {
         binding.lottieAnimationView.playAnimation()
     }
 
-    // Setup search functionality
+
     private fun searchCity() {
         val searchView = binding.searchView
         searchView.setOnQueryTextListener(object : SearchView.OnQueryTextListener {
             override fun onQueryTextSubmit(query: String?): Boolean {
                 if (query != null && query.isNotEmpty()) {
-                    fetchWeatherData(query)  // Fetch weather data for the entered city
-                    searchView.setQuery("", false)  // Clear the search field
+                    fetchWeatherData(query)
+                    searchView.setQuery("", false)
                 }
                 return true
             }
 
             override fun onQueryTextChange(newText: String?): Boolean {
-                // Optionally, handle any text changes in the search view here
                 return true
             }
         })

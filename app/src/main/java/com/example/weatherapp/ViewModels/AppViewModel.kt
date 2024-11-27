@@ -35,9 +35,7 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
             } catch (e: Exception) {
 
                 errorMessage.value = "Error: ${e.message}"
-                withContext(Dispatchers.Main) {
-                    Toast.makeText(getApplication(), "Error: ${e.message}", Toast.LENGTH_LONG).show()
-                }
+
                 Log.e("AppViewModel", "Error: ${e.message}", e)
             } finally {
 
